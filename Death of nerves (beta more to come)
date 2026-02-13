@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Blockfall</title>
+<style>
+body { margin:0; overflow:hidden; background:black; font-family:monospace; color:white;}
+#ui { position:absolute; top:10px; left:10px; z-index:10;}
+#pause { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+background:rgba(0,0,0,0.9); padding:40px; display:none; text-align:center;}
+#objective { font-size:18px; margin-bottom:10px;}
+canvas { display:block; }
+</style>
+</head>
+<body>
+
+<div id="ui">
+<div id="objective"></div>
+<div id="timer"></div>
+</div>
+
+<div id="pause">
+<h1>PAUSED</h1>
+<p>Press ESC to continue</p>
+</div>
+
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let player = { x:100, y:100 };
+let keys = {};
+let gameTime = 0;
+let phase = 1;
+let paused = false;
+let corruption = 0;
+let shadowOffset = 0;
+
+let saveData = JSON.parse(localStorage.getItem("blockfallSave"));
+if(saveData){
+    gameTime = saveData.gameTime;
+    phase = saveData.phase;
+}
+
+document.addEventListener("keydown", e=>{
+    if(e.key === "Escape"){
+        paused = !paused;
+        document.getElementById("pause").style.display = paused ? "block":"none";
+    }
+    keys[e.key] = true;
+});
+document.addEventListener("keyup", e=> keys[e.key]=false);
+
+function saveGame(){
+    localStorage.setItem("blockfallSave",
+        JSON.stringify({gameTime, phase}));
+}
+setInterval(saveGame, 5000);
+
+function update(){
+    if(paused) return;
+
+    gameTime += 0.016;
+
+    if(gameTime > 300) phase = 2;
+    if(gameTime > 600) phase = 3;
+    if(gameTime > 900) phase = 4;
+
+    if(keys["w"]) player.y -= 2;
+    if(keys["s"]) player.y += 2;
+    if(keys["a"]) player.x -= 2;
+    if(keys["d"]) player.x += 2;
+
+    if(phase >= 3){
+        corruption += 0.05;
+        shadowOffset = Math.sin(gameTime*2)*10;
+    }
+}
+
+function drawWorld(){
+    ctx.fillStyle = phase >= 3 ? 
+        `rgb(${corruption},0,0)` : "green";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    if(phase >= 2){
+        ctx.fillStyle = "white";
+        ctx.fillRect(600,300,20,40);
+    }
+
+    if(phase >= 4){
+        ctx.fillStyle = "black";
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+    }
+}
+
+function drawPlayer(){
+    ctx.fillStyle = "blue";
+    ctx.fillRect(player.x, player.y, 30,30);
+
+    if(phase >= 3){
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(player.x+shadowOffset, player.y+40,30,10);
+    }
+}
+
+function updateObjective(){
+    let obj = "";
+    if(phase === 1){
+        obj = "Objective: Gather wood. Survive.";
+    }
+    else if(phase === 2){
+        obj = "Objective: Find the light.";
+    }
+    else if(phase === 3){
+        obj = "Objective: Why are you here?";
+    }
+    else{
+        obj = "Objective: Turn around.";
+    }
+    document.getElementById("objective").innerText = obj;
+    document.getElementById("timer").innerText =
+        "Time: " + Math.floor(gameTime);
+}
+
+function loop(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    update();
+    drawWorld();
+    drawPlayer();
+    updateObjective();
+    requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+
+</body>
+</html>
