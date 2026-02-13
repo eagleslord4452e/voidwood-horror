@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>VOIDWOOD</title>
+<style>
+body { margin:0; overflow:hidden; background:black; }
+#overlay {
+ position:absolute;
+ top:10px;
+ left:10px;
+ color:white;
+ font-family:monospace;
+}
+</style>
+</head>
+<body>
+<div id="overlay">
+Sanity: <span id="sanity">100</span><br>
+Time Left: <span id="time">180</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+
+<script>
+let scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x000000, 0.05);
+
+let camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+let renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+let clock = new THREE.Clock();
+let sanity = 100;
+let timeLeft = 180;
+let gameOver = false;
+
+// Ground
+let ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(300,300),
+  new THREE.MeshStandardMaterial({color:0x111111})
+);
+ground.rotation.x = -Math.PI/2;
+scene.add(ground);
+
+// Trees
+for(let i=0;i<200;i++){
+  let tree = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.5,0.5,12),
+    new THREE.MeshStandardMaterial({color:0x222222})
+  );
+  tree.position.set(
+    (Math.random()-0.5)*250,
+    6,
+    (Math.random()-0.5)*250
+  );
+  scene.add(tree);
+}
+
+// Flashlight
+let light = new THREE.PointLight(0xffffff, 1, 25);
+camera.add(light);
+scene.add(camera);
+camera.position.set(0,2,0);
+
+// Shadow Figure (appears briefly)
+let figure = new THREE.Mesh(
+  new THREE.BoxGeometry(2,4,1),
+  new THREE.MeshBasicMaterial({color:0x000000})
+);
+figure.visible = false;
+scene.add(figure);
+
+// Movement
+let keys = {};
+document.addEventListener("keydown", e=> keys[e.key]=true);
+document.addEventListener("keyup", e=> keys[e.key]=false);
+
+function animate(){
+  if(gameOver) return;
+  requestAnimationFrame(animate);
+
+  let delta = clock.getDelta();
+
+  // Timer
+  timeLeft -= delta;
+  document.getElementById("time").innerText = Math.floor(timeLeft);
+
+  if(timeLeft <= 0){
+    alert("You survived the forest.");
+    gameOver=true;
+  }
+
+  // Movement
+  let speed = 12*delta;
+  if(keys["w"]) camera.position.z -= speed;
+  if(keys["s"]) camera.position.z += speed;
+  if(keys["a"]) camera.position.x -= speed;
+  if(keys["d"]) camera.position.x += speed;
+
+  // Flicker
+  light.intensity = 0.6 + Math.random()*0.5;
+
+  // Sanity Drain
+  sanity -= 0.8*delta;
+  if(sanity < 0) sanity = 0;
+  document.getElementById("sanity").innerText = Math.floor(sanity);
+
+  // Fog increases as sanity drops
+  if(sanity < 60) scene.fog.density = 0.1;
+  if(sanity < 40) scene.fog.density = 0.15;
+  if(sanity < 20) scene.fog.density = 0.25;
+
+  // Random shadow appearance
+  if(Math.random() < 0.005){
+    figure.position.set(
+      camera.position.x + (Math.random()*10-5),
+      2,
+      camera.position.z + (Math.random()*10-5)
+    );
+    figure.visible = true;
+
+    setTimeout(()=>{
+      figure.visible = false;
+    }, 200);
+  }
+
+  // Game Over if too close
+  if(figure.visible){
+    let dx = figure.position.x - camera.position.x;
+    let dz = figure.position.z - camera.position.z;
+    let dist = Math.sqrt(dx*dx + dz*dz);
+    if(dist < 2){
+      document.body.style.background="white";
+      alert("IT FOUND YOU.");
+      gameOver=true;
+    }
+  }
+
+  renderer.render(scene,camera);
+}
+
+animate();
+</script>
+</body>
+</html>
